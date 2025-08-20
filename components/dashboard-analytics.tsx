@@ -14,6 +14,13 @@ interface MonthlyCountsResponse {
   counts: number[]
 }
 
+interface StatusMonthlyResponse {
+  year: number
+  month: number
+  delivered: number
+  failed: number
+}
+
 export function DashboardAnalytics() {
   const [activeFilter, setActiveFilter] = useState<TimeFilter>("1week")
   const [userEmail, setUserEmail] = useState("jessica0409@naver.com")
@@ -21,6 +28,13 @@ export function DashboardAnalytics() {
   const [monthlyData, setMonthlyData] = useState<MonthlyCountsResponse | null>(null)
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false)
   const [monthlyError, setMonthlyError] = useState<string | null>(null)
+  
+  // Status Monthly States
+  const [statusYear, setStatusYear] = useState(2024)
+  const [statusMonth, setStatusMonth] = useState(9)
+  const [statusData, setStatusData] = useState<StatusMonthlyResponse | null>(null)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
 
   const mockData = {
     totalMessages: 1247,
@@ -59,9 +73,36 @@ export function DashboardAnalytics() {
     }
   }
 
+  const fetchStatusData = async () => {
+    setIsLoadingStatus(true)
+    setStatusError(null)
+    
+    try {
+      const response = await fetch(
+        `http://localhost:8081/api/v1/dashboard/data/status-monthly-counts?year=${statusYear}&month=${statusMonth}`
+      )
+      
+      if (!response.ok) {
+        throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`)
+      }
+      
+      const data: StatusMonthlyResponse = await response.json()
+      setStatusData(data)
+    } catch (error) {
+      console.error("Status data fetch error:", error)
+      setStatusError(error instanceof Error ? error.message : "데이터를 불러오는데 실패했습니다")
+    } finally {
+      setIsLoadingStatus(false)
+    }
+  }
+
   useEffect(() => {
     fetchMonthlyData()
   }, [userEmail, selectedYear])
+
+  useEffect(() => {
+    fetchStatusData()
+  }, [statusYear, statusMonth])
 
   return (
     <div className="h-[calc(100vh-80px)] overflow-y-auto">
@@ -158,6 +199,172 @@ export function DashboardAnalytics() {
               <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
                 <p className="text-muted-foreground font-mono">
                   Enter user email and year to view monthly statistics
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Monthly Status Statistics */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-sans flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Monthly Status Statistics
+            </CardTitle>
+            <CardDescription className="font-mono">
+              View delivery success/failure rates and costs for specific month
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end space-x-4 mb-4">
+              <div className="w-32">
+                <Label htmlFor="statusYear" className="text-sm font-medium">
+                  Year
+                </Label>
+                <Input
+                  id="statusYear"
+                  type="number"
+                  value={statusYear}
+                  onChange={(e) => setStatusYear(parseInt(e.target.value) || 2024)}
+                  min="2020"
+                  max="2030"
+                  className="mt-1"
+                />
+              </div>
+              <div className="w-32">
+                <Label htmlFor="statusMonth" className="text-sm font-medium">
+                  Month
+                </Label>
+                <Input
+                  id="statusMonth"
+                  type="number"
+                  value={statusMonth}
+                  onChange={(e) => setStatusMonth(parseInt(e.target.value) || 1)}
+                  min="1"
+                  max="12"
+                  className="mt-1"
+                />
+              </div>
+              <Button 
+                onClick={fetchStatusData}
+                disabled={isLoadingStatus}
+                className="font-sans"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+                {isLoadingStatus ? 'Loading...' : 'Update'}
+              </Button>
+            </div>
+
+            {/* Status Chart and Stats */}
+            {statusError ? (
+              <div className="h-64 flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
+                <p className="text-destructive font-mono text-center">
+                  Error: {statusError}
+                </p>
+              </div>
+            ) : statusData ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Pie Chart */}
+                <div className="h-64 bg-muted rounded-lg p-4 flex items-center justify-center">
+                  <div className="relative w-48 h-48">
+                    {/* Simple CSS-based pie chart */}
+                    <div className="w-full h-full rounded-full relative overflow-hidden bg-gray-200">
+                      {statusData.delivered + statusData.failed > 0 && (
+                        <>
+                          <div 
+                            className="absolute inset-0 rounded-full bg-green-500"
+                            style={{
+                              background: `conic-gradient(
+                                #22c55e 0deg ${(statusData.delivered / (statusData.delivered + statusData.failed)) * 360}deg,
+                                #ef4444 ${(statusData.delivered / (statusData.delivered + statusData.failed)) * 360}deg 360deg
+                              )`
+                            }}
+                          />
+                          <div className="absolute inset-8 bg-background rounded-full flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold">
+                                {statusData.delivered + statusData.failed}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Total
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {/* Legend */}
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded"></div>
+                        <span className="text-sm">Delivered: {statusData.delivered}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded"></div>
+                        <span className="text-sm">Failed: {statusData.failed}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statistics */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-2xl font-bold text-green-600">
+                          {statusData.delivered}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Delivered Messages
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-2xl font-bold text-red-600">
+                          {statusData.failed}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Failed Messages
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-lg font-semibold text-foreground">
+                        Success Rate
+                      </div>
+                      <div className="text-2xl font-bold text-primary">
+                        {statusData.delivered + statusData.failed > 0 
+                          ? ((statusData.delivered / (statusData.delivered + statusData.failed)) * 100).toFixed(1)
+                          : 0}%
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-4">
+                      <div className="text-lg font-semibold text-foreground mb-2">
+                        Monthly Cost
+                      </div>
+                      <div className="text-2xl font-bold text-primary">
+                        {(statusData.delivered * 66).toLocaleString()} won
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        ({statusData.delivered} delivered × 66 won per message)
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
+                <p className="text-muted-foreground font-mono">
+                  Select year and month to view delivery statistics
                 </p>
               </div>
             )}

@@ -42,7 +42,7 @@ export function DashboardAnalytics() {
     
     try {
       const response = await fetch(
-        `http://localhost:8081/api/v1/dashboard/data/monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${selectedYear}`
+        `${process.env.NEXT_PUBLIC_DASHBOARD_API_URL || 'http://localhost:8081'}/api/v1/dashboard/data/monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${selectedYear}`
       )
       
       if (!response.ok) {

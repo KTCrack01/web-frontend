@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Send, Users, Edit, Bot, Clock, MessageSquare } from "lucide-react"
+import { sendMessage, sendChatPrompt } from "@/lib/api/message"
+import { toast } from "sonner"
 
 interface SentMessage {
   id: string
@@ -37,23 +39,36 @@ export function MessagingInterface() {
 
     setIsSending(true)
 
-    // Create new message for history
-    const newMessage: SentMessage = {
-      id: Date.now().toString(),
-      recipients: recipients.trim(),
-      content: messageContent.trim(),
-      timestamp: new Date(),
-    }
+    try {
+      // Send message to backend
+      const response = await sendMessage({
+        recipients: recipients.trim(),
+        content: messageContent.trim(),
+      })
 
-    // Simulate sending message
-    setTimeout(() => {
-      // Add to history (keep only 5 most recent)
-      setMessageHistory((prev) => [newMessage, ...prev].slice(0, 5))
-      alert(`Message sent to: ${recipients}`)
-      setRecipients("")
-      setMessageContent("")
+      if (response.success) {
+        // Create new message for history
+        const newMessage: SentMessage = {
+          id: response.messageId || Date.now().toString(),
+          recipients: recipients.trim(),
+          content: messageContent.trim(),
+          timestamp: new Date(),
+        }
+
+        // Add to history (keep only 5 most recent)
+        setMessageHistory((prev) => [newMessage, ...prev].slice(0, 5))
+        toast.success(`Message sent successfully to: ${recipients}`)
+        setRecipients("")
+        setMessageContent("")
+      } else {
+        toast.error(`Failed to send message: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      toast.error('Failed to send message. Please try again.')
+    } finally {
       setIsSending(false)
-    }, 1000)
+    }
   }
 
   const handleChatSubmit = async () => {
@@ -63,12 +78,25 @@ export function MessagingInterface() {
     const userPrompt = chatPrompt
     setChatPrompt("")
 
-    // Simulate ChatGPT response
-    setTimeout(() => {
-      const response = `AI: Here's a response to "${userPrompt}". This is a simulated ChatGPT integration that would help you craft better messages, provide suggestions, or answer questions about your messaging campaigns.`
-      setChatResponses((prev) => [...prev, `You: ${userPrompt}`, response])
+    try {
+      // Send chat prompt to backend for GPT processing
+      const response = await sendChatPrompt({
+        prompt: userPrompt,
+      })
+
+      if (response.success && response.response) {
+        setChatResponses((prev) => [...prev, `You: ${userPrompt}`, `AI: ${response.response}`])
+      } else {
+        const errorMessage = `AI: Sorry, I couldn't process your request. ${response.error || 'Please try again.'}`
+        setChatResponses((prev) => [...prev, `You: ${userPrompt}`, errorMessage])
+      }
+    } catch (error) {
+      console.error('Error getting chat response:', error)
+      const errorMessage = `AI: Sorry, I encountered an error. Please try again.`
+      setChatResponses((prev) => [...prev, `You: ${userPrompt}`, errorMessage])
+    } finally {
       setIsLoadingChat(false)
-    }, 1000)
+    }
   }
 
   const formatTimestamp = (date: Date) => {
@@ -224,8 +252,17 @@ export function MessagingInterface() {
             disabled={!recipients.trim() || !messageContent.trim() || isSending}
             className="w-full font-sans"
           >
-            <Send className="h-4 w-4 mr-2" />
-            {isSending ? "Sending..." : "Send Message"}
+            {isSending ? (
+              <>
+                <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Send Message
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -262,7 +299,11 @@ export function MessagingInterface() {
               className="flex-1"
             />
             <Button onClick={handleChatSubmit} disabled={!chatPrompt.trim() || isLoadingChat} size="sm">
-              <Send className="h-4 w-4" />
+              {isLoadingChat ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>

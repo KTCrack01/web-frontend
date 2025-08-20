@@ -10,7 +10,6 @@ import { Send, Users, Edit, Bot, Clock, MessageSquare } from "lucide-react"
 
 interface SentMessage {
   id: string
-  recipients: string
   content: string
   timestamp: Date
 }
@@ -32,30 +31,110 @@ export function MessagingInterface() {
 
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleSendMessage = async () => {
-    if (!recipients.trim() || !messageContent.trim()) return
+  // 내가 추가한 부분
+  const API_BASE = "http://localhost:8080";
 
-    setIsSending(true)
+  type HistoryRow = {
+    id: number;
+    body: string;
+    createdAt: string; // ISO
+  };
 
-    // Create new message for history
-    const newMessage: SentMessage = {
-      id: Date.now().toString(),
-      recipients: recipients.trim(),
-      content: messageContent.trim(),
-      timestamp: new Date(),
+  // ✅ 보이는 특수문자 제거(앞에 이상한 제어문자 있었음)
+  const [userEmail] = useState("jessica0409@naver.com") // TODO: 로그인 이메일로 교체
+
+  // ✅ 마운트/포커스에서 취소 가능하도록 AbortController 사용
+  const fetchMessageHistory = async (email: string, signal?: AbortSignal) => {
+    const res = await fetch(
+      // ✅ 템플릿 리터럴(backtick) 필수
+      `${API_BASE}/api/v1/messages?userEmail=${encodeURIComponent(email)}`,
+      { headers: { "Content-Type": "application/json" }, signal }
+    )
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      throw new Error(`GET /messages 실패: ${res.status} ${res.statusText} ${text}`)
     }
+    const rows: HistoryRow[] = await res.json()
 
-    // Simulate sending message
-    setTimeout(() => {
-      // Add to history (keep only 5 most recent)
-      setMessageHistory((prev) => [newMessage, ...prev].slice(0, 5))
-      alert(`Message sent to: ${recipients}`)
-      setRecipients("")
-      setMessageContent("")
-      setIsSending(false)
-    }, 1000)
+    const mapped: SentMessage[] = rows
+      .map((r) => ({
+        id: String(r.id),
+        content: r.body,
+        timestamp: new Date(r.createdAt),
+      }))
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+
+    setMessageHistory(mapped) // 최근 5개
   }
 
+  // ✅ 페이지 처음 등장/새로고침 시 자동 조회
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchMessageHistory(userEmail, controller.signal).catch((e) => console.error(e))
+    return () => controller.abort()
+  }, [userEmail])
+
+  // ✅ 탭에 포커스가 돌아오거나 가시성 변경 시 재조회 (선택사항)
+  useEffect(() => {
+    const onFocusOrVisible = () => {
+      const controller = new AbortController()
+      fetchMessageHistory(userEmail, controller.signal).catch(() => {})
+      // 짧은 작업이라 굳이 abort 반환은 생략
+    }
+    window.addEventListener("focus", onFocusOrVisible)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") onFocusOrVisible()
+    })
+    return () => {
+      window.removeEventListener("focus", onFocusOrVisible)
+      document.removeEventListener("visibilitychange", onFocusOrVisible as any)
+    }
+  }, [userEmail])
+
+  const handleSendMessage = async () => {
+    if (!recipients.trim() || !messageContent.trim()) return;
+  
+    setIsSending(true);
+  
+    // 입력창의 recipients를 배열로 변환(쉼표/공백 구분)
+    const recipientArray = recipients
+      .split(/[,\s]+/)
+      .map(r => r.trim())
+      .filter(Boolean);
+  
+    const payload = {
+      userEmail,                   // 로그인/상태에서 가져온 이메일
+      body: messageContent.trim(),
+      recipients: recipientArray,  // ["+8210...", "+8210..."]
+    };
+  
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`POST 실패: ${res.status} ${res.statusText} ${text}`);
+      }
+
+      // 성공 → 입력 초기화
+      setRecipients("");
+      setMessageContent("");
+  
+      // 바로 최신 히스토리 다시 조회
+      await fetchMessageHistory(userEmail);
+  
+      alert(`Message sent to: ${recipientArray.join(", ")}`);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message ?? "전송 실패");
+    } finally {
+      setIsSending(false);
+    }
+  };
+  
   const handleChatSubmit = async () => {
     if (!chatPrompt.trim()) return
 
@@ -162,7 +241,7 @@ export function MessagingInterface() {
                       <MessageSquare className="h-3 w-3 text-muted-foreground mt-1" />
                       <span className="text-xs text-muted-foreground">{formatTimestamp(message.timestamp)}</span>
                     </div>
-                    <p className="text-xs font-medium text-foreground mb-1">To: {message.recipients}</p>
+                    {/* <p className="text-xs font-medium text-foreground mb-1">To: {message.recipients}</p> */}
                     <p className="text-xs text-muted-foreground line-clamp-3 font-mono">{message.content}</p>
                   </CardContent>
                 </Card>

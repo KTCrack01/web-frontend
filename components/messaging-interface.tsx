@@ -10,7 +10,6 @@ import { Send, Users, Edit, Bot, Clock, MessageSquare } from "lucide-react"
 
 interface SentMessage {
   id: string
-  recipients: string
   content: string
   timestamp: Date
 }
@@ -32,30 +31,86 @@ export function MessagingInterface() {
 
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleSendMessage = async () => {
-    if (!recipients.trim() || !messageContent.trim()) return
+  // 내가 추가한 부분
+  const API_BASE = "http://localhost:8080";
 
-    setIsSending(true)
+  type HistoryRow = {
+    id: number;
+    body: string;
+    createdAt: string; // ISO
+  };
 
-    // Create new message for history
-    const newMessage: SentMessage = {
-      id: Date.now().toString(),
-      recipients: recipients.trim(),
-      content: messageContent.trim(),
-      timestamp: new Date(),
+  // 일단 로그인이 되지 않기 때문에 하드코딩으로 변경
+  const [userEmail] = useState("jessica0409@naver.com"); // TODO: 실제 로그인 이메일로 교체
+
+  const fetchMessageHistory = async (email: string) => {
+    const res = await fetch(
+      `${API_BASE}/api/v1/messages?userEmail=${encodeURIComponent(email)}`,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`GET /messages 실패: ${res.status} ${res.statusText} ${text}`);
     }
+    const rows: HistoryRow[] = await res.json();
+  
+    // 서버 createdAt → Date 변환, 최신순 정렬
+    const mapped: SentMessage[] = rows
+      .map(r => ({
+        id: String(r.id),
+        content: r.body,
+        timestamp: new Date(r.createdAt),
+      }))
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  
+    // “최근 5개만” 유지하려면 slice(0,5)
+    setMessageHistory(mapped.slice(0, 5));
+  };
 
-    // Simulate sending message
-    setTimeout(() => {
-      // Add to history (keep only 5 most recent)
-      setMessageHistory((prev) => [newMessage, ...prev].slice(0, 5))
-      alert(`Message sent to: ${recipients}`)
-      setRecipients("")
-      setMessageContent("")
-      setIsSending(false)
-    }, 1000)
-  }
+  const handleSendMessage = async () => {
+    if (!recipients.trim() || !messageContent.trim()) return;
+  
+    setIsSending(true);
+  
+    // 입력창의 recipients를 배열로 변환(쉼표/공백 구분)
+    const recipientArray = recipients
+      .split(/[,\s]+/)
+      .map(r => r.trim())
+      .filter(Boolean);
+  
+    const payload = {
+      userEmail,                   // 로그인/상태에서 가져온 이메일
+      body: messageContent.trim(),
+      recipients: recipientArray,  // ["+8210...", "+8210..."]
+    };
+  
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`POST 실패: ${res.status} ${res.statusText} ${text}`);
+      }
 
+      // 성공 → 입력 초기화
+      setRecipients("");
+      setMessageContent("");
+  
+      // 바로 최신 히스토리 다시 조회
+      await fetchMessageHistory(userEmail);
+  
+      alert(`Message sent to: ${recipientArray.join(", ")}`);
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message ?? "전송 실패");
+    } finally {
+      setIsSending(false);
+    }
+  };
+  
   const handleChatSubmit = async () => {
     if (!chatPrompt.trim()) return
 
@@ -162,7 +217,7 @@ export function MessagingInterface() {
                       <MessageSquare className="h-3 w-3 text-muted-foreground mt-1" />
                       <span className="text-xs text-muted-foreground">{formatTimestamp(message.timestamp)}</span>
                     </div>
-                    <p className="text-xs font-medium text-foreground mb-1">To: {message.recipients}</p>
+                    {/* <p className="text-xs font-medium text-foreground mb-1">To: {message.recipients}</p> */}
                     <p className="text-xs text-muted-foreground line-clamp-3 font-mono">{message.content}</p>
                   </CardContent>
                 </Card>

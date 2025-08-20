@@ -40,32 +40,56 @@ export function MessagingInterface() {
     createdAt: string; // ISO
   };
 
-  // 일단 로그인이 되지 않기 때문에 하드코딩으로 변경
-  const [userEmail] = useState("jessica0409@naver.com"); // TODO: 실제 로그인 이메일로 교체
+  // ✅ 보이는 특수문자 제거(앞에 이상한 제어문자 있었음)
+  const [userEmail] = useState("jessica0409@naver.com") // TODO: 로그인 이메일로 교체
 
-  const fetchMessageHistory = async (email: string) => {
+  // ✅ 마운트/포커스에서 취소 가능하도록 AbortController 사용
+  const fetchMessageHistory = async (email: string, signal?: AbortSignal) => {
     const res = await fetch(
+      // ✅ 템플릿 리터럴(backtick) 필수
       `${API_BASE}/api/v1/messages?userEmail=${encodeURIComponent(email)}`,
-      { headers: { "Content-Type": "application/json" } }
-    );
+      { headers: { "Content-Type": "application/json" }, signal }
+    )
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`GET /messages 실패: ${res.status} ${res.statusText} ${text}`);
+      const text = await res.text().catch(() => "")
+      throw new Error(`GET /messages 실패: ${res.status} ${res.statusText} ${text}`)
     }
-    const rows: HistoryRow[] = await res.json();
-  
-    // 서버 createdAt → Date 변환, 최신순 정렬
+    const rows: HistoryRow[] = await res.json()
+
     const mapped: SentMessage[] = rows
-      .map(r => ({
+      .map((r) => ({
         id: String(r.id),
         content: r.body,
         timestamp: new Date(r.createdAt),
       }))
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  
-    // “최근 5개만” 유지하려면 slice(0,5)
-    setMessageHistory(mapped.slice(0, 5));
-  };
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+
+    setMessageHistory(mapped) // 최근 5개
+  }
+
+  // ✅ 페이지 처음 등장/새로고침 시 자동 조회
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchMessageHistory(userEmail, controller.signal).catch((e) => console.error(e))
+    return () => controller.abort()
+  }, [userEmail])
+
+  // ✅ 탭에 포커스가 돌아오거나 가시성 변경 시 재조회 (선택사항)
+  useEffect(() => {
+    const onFocusOrVisible = () => {
+      const controller = new AbortController()
+      fetchMessageHistory(userEmail, controller.signal).catch(() => {})
+      // 짧은 작업이라 굳이 abort 반환은 생략
+    }
+    window.addEventListener("focus", onFocusOrVisible)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") onFocusOrVisible()
+    })
+    return () => {
+      window.removeEventListener("focus", onFocusOrVisible)
+      document.removeEventListener("visibilitychange", onFocusOrVisible as any)
+    }
+  }, [userEmail])
 
   const handleSendMessage = async () => {
     if (!recipients.trim() || !messageContent.trim()) return;

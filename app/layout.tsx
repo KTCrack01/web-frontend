@@ -17,7 +17,7 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: "Certified Messaging Service",
+  title: "Certified Messaging 서비스",
   description: "Professional messaging platform for corporate communication",
   generator: "v0.app",
 }

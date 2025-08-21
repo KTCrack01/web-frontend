@@ -657,7 +657,7 @@ export function MessagingInterface() {
         <div className="p-6 border-b border-border">
           <h2 className="text-xl font-semibold text-foreground font-sans flex items-center">
             <Bot className="h-5 w-5 mr-2" />
-            ChatGPT Integrationnn
+            ChatGPT Integration
           </h2>
         </div>
 

@@ -5,11 +5,24 @@ import { MessageSquare, BarChart3, User, Settings, LogOut, Users } from "lucide-
 import { MessagingInterface } from "@/components/messaging-interface"
 import { DashboardAnalytics } from "@/components/dashboard-analytics"
 import { AddressBook } from "@/components/address-book"
+import { useUser } from "@/contexts/UserContext"
+import { useRouter } from "next/navigation"
 
 type ActiveTab = "messaging" | "dashboard" | "address-book"
 
 export function DashboardLayout() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("messaging")
+  const { setUserEmail } = useUser()
+  const router = useRouter()
+
+  // 로그아웃 핸들러
+  const handleLogout = () => {
+    // 사용자 이메일 초기화
+    setUserEmail(null)
+    
+    // 로그인 페이지로 리디렉션
+    router.push('/')
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,7 +76,7 @@ export function DashboardLayout() {
             <Button variant="ghost" size="sm">
               <Settings className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleLogout} title="로그아웃">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

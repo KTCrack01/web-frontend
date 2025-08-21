@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Send, Users, Edit, Bot, Clock, MessageSquare } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Send, Users, Edit, Bot, Clock, MessageSquare, Loader2 } from "lucide-react"
 
 interface SentMessage {
   id: string
@@ -28,6 +30,16 @@ interface ChatGptResponse {
   error: string | null
 }
 
+interface Contact {
+  id: number
+  ownerEmail: string
+  contactName: string
+  phoneNumber: string
+  carrier: string
+  createdAt: string
+  updatedAt: string
+}
+
 export function MessagingInterface() {
   const [recipients, setRecipients] = useState("")
   const [messageContent, setMessageContent] = useState("")
@@ -43,12 +55,20 @@ export function MessagingInterface() {
   const [isDragging, setIsDragging] = useState<"left" | "right" | null>(null)
   const [dragStartX, setDragStartX] = useState(0)
   const [dragStartWidths, setDragStartWidths] = useState({ left: 0, middle: 0, right: 0 })
+  
+  // Address Book 관련 상태
+  const [isAddressBookOpen, setIsAddressBookOpen] = useState(false)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [selectedContacts, setSelectedContacts] = useState<Set<number>>(new Set())
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false)
+  const [contactsError, setContactsError] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
 
   // API 설정
   const MESSAGE_API_BASE = "https://messaging-svc-a0euekhwgueqd7c0.koreacentral-01.azurewebsites.net"
   const CHAT_API_BASE = "https://aiagent-svc-dka3epddc7f5hdbm.koreacentral-01.azurewebsites.net"
+  const PHONEBOOK_API_BASE = "https://phonebook-svc-dtd4f8f9cyfee5c0.koreacentral-01.azurewebsites.net"
   const FIXED_USER_ID = "jessica0409@naver.com"
 
   // ChatGPT 모델 목록
@@ -106,6 +126,89 @@ export function MessagingInterface() {
 
   // ✅ 보이는 특수문자 제거(앞에 이상한 제어문자 있었음)
   const [userEmail] = useState(FIXED_USER_ID) // TODO: 로그인 이메일로 교체
+
+  // 전화번호 형식 변환 함수 (010-1234-5678 → +821012345678)
+  const formatPhoneToInternational = (phoneNumber: string): string => {
+    // 하이픈 제거
+    const cleanNumber = phoneNumber.replace(/-/g, '')
+    
+    // 010으로 시작하는 한국 번호인지 확인
+    if (cleanNumber.startsWith('010') && cleanNumber.length === 11) {
+      // 010을 제거하고 +82를 붙임
+      return `+82${cleanNumber.substring(1)}`
+    }
+    
+    // 이미 +82로 시작하면 그대로 반환
+    if (cleanNumber.startsWith('+82')) {
+      return cleanNumber
+    }
+    
+    // 다른 형식이면 그대로 반환
+    return phoneNumber
+  }
+
+  // Address Book 연락처 조회 함수
+  const fetchContacts = async () => {
+    setIsLoadingContacts(true)
+    setContactsError(null)
+    
+    try {
+      const response = await fetch(`${PHONEBOOK_API_BASE}/api/phonebook/owner/${encodeURIComponent(FIXED_USER_ID)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`연락처 조회 실패: ${response.status} ${response.statusText}`)
+      }
+
+      const data: Contact[] = await response.json()
+      setContacts(data)
+    } catch (error) {
+      console.error("연락처 조회 실패:", error)
+      setContactsError(error instanceof Error ? error.message : "연락처 조회에 실패했습니다.")
+    } finally {
+      setIsLoadingContacts(false)
+    }
+  }
+
+  // Address Book 다이얼로그 열기 핸들러
+  const handleOpenAddressBook = () => {
+    setIsAddressBookOpen(true)
+    setSelectedContacts(new Set())
+    fetchContacts()
+  }
+
+  // 연락처 선택/해제 핸들러
+  const handleContactToggle = (contactId: number) => {
+    const newSelected = new Set(selectedContacts)
+    if (newSelected.has(contactId)) {
+      newSelected.delete(contactId)
+    } else {
+      newSelected.add(contactId)
+    }
+    setSelectedContacts(newSelected)
+  }
+
+  // 선택된 연락처들을 Recipients에 추가하는 핸들러
+  const handleAddSelectedContacts = () => {
+    const selectedPhoneNumbers = contacts
+      .filter(contact => selectedContacts.has(contact.id))
+      .map(contact => formatPhoneToInternational(contact.phoneNumber))
+    
+    if (selectedPhoneNumbers.length > 0) {
+      const currentRecipients = recipients.trim()
+      const newRecipients = currentRecipients 
+        ? `${currentRecipients}, ${selectedPhoneNumbers.join(", ")}`
+        : selectedPhoneNumbers.join(", ")
+      
+      setRecipients(newRecipients)
+      setIsAddressBookOpen(false)
+      setSelectedContacts(new Set())
+    }
+  }
 
   // ✅ 마운트/포커스에서 취소 가능하도록 AbortController 사용
   const fetchMessageHistory = async (email: string, signal?: AbortSignal) => {
@@ -371,10 +474,92 @@ export function MessagingInterface() {
                 onChange={(e) => setRecipients(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline" size="sm">
-                <Users className="h-4 w-4 mr-2" />
-                Load from Address Book
-              </Button>
+              <Dialog open={isAddressBookOpen} onOpenChange={setIsAddressBookOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={handleOpenAddressBook}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Load from Address Book
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>Select Contacts from Address Book</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="flex flex-col h-[500px]">
+                    {/* Contact List */}
+                    <div className="flex-1 overflow-y-auto">
+                      {isLoadingContacts ? (
+                        <div className="flex items-center justify-center h-32">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          <span>Loading contacts...</span>
+                        </div>
+                      ) : contactsError ? (
+                        <div className="flex items-center justify-center h-32 text-red-600">
+                          <span>Error: {contactsError}</span>
+                        </div>
+                      ) : contacts.length === 0 ? (
+                        <div className="flex items-center justify-center h-32 text-muted-foreground">
+                          <span>No contacts found</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 p-1">
+                          {contacts.map((contact) => (
+                            <Card 
+                              key={contact.id} 
+                              className={`cursor-pointer transition-colors ${
+                                selectedContacts.has(contact.id) ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
+                              }`}
+                              onClick={() => handleContactToggle(contact.id)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center space-x-3">
+                                  <Checkbox 
+                                    checked={selectedContacts.has(contact.id)}
+                                    onChange={() => handleContactToggle(contact.id)}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm">{contact.contactName}</div>
+                                    <div className="text-xs text-muted-foreground font-mono">{contact.phoneNumber}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      <span className="bg-primary/10 text-primary px-1 py-0.5 rounded text-xs">
+                                        {contact.carrier}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="border-t pt-4 mt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          {selectedContacts.size} contact(s) selected
+                        </span>
+                        <div className="space-x-2">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setIsAddressBookOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={handleAddSelectedContacts}
+                            disabled={selectedContacts.size === 0}
+                          >
+                            Add Selected ({selectedContacts.size})
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             <Button variant="ghost" size="sm" className="text-xs">
               <Edit className="h-3 w-3 mr-1" />

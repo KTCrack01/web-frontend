@@ -29,14 +29,14 @@ interface PhoneRankingItem {
 export function DashboardAnalytics() {
   const [activeFilter, setActiveFilter] = useState<TimeFilter>("1week")
   const [userEmail, setUserEmail] = useState("jessica0409@naver.com")
-  const [selectedYear, setSelectedYear] = useState(2023)
+  const [selectedYear, setSelectedYear] = useState(2025)
   const [monthlyData, setMonthlyData] = useState<MonthlyCountsResponse | null>(null)
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false)
   const [monthlyError, setMonthlyError] = useState<string | null>(null)
   
   // Status Monthly States
-  const [statusYear, setStatusYear] = useState(2024)
-  const [statusMonth, setStatusMonth] = useState(9)
+  const [statusYear, setStatusYear] = useState(2025)
+  const [statusMonth, setStatusMonth] = useState(8)
   const [statusData, setStatusData] = useState<StatusMonthlyResponse | null>(null)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
@@ -194,7 +194,7 @@ export function DashboardAnalytics() {
                   id="year"
                   type="number"
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value) || 2023)}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value) || 2025)}
                   min="2020"
                   max="2030"
                   className="mt-1"
@@ -278,7 +278,7 @@ export function DashboardAnalytics() {
                   id="statusYear"
                   type="number"
                   value={statusYear}
-                  onChange={(e) => setStatusYear(parseInt(e.target.value) || 2024)}
+                  onChange={(e) => setStatusYear(parseInt(e.target.value) || 2025)}
                   min="2020"
                   max="2030"
                   className="mt-1"
@@ -292,7 +292,7 @@ export function DashboardAnalytics() {
                   id="statusMonth"
                   type="number"
                   value={statusMonth}
-                  onChange={(e) => setStatusMonth(parseInt(e.target.value) || 1)}
+                  onChange={(e) => setStatusMonth(parseInt(e.target.value) || 8)}
                   min="1"
                   max="12"
                   className="mt-1"

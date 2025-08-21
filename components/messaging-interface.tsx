@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Send, Users, Edit, Bot, Clock, MessageSquare, Loader2 } from "lucide-react"
+import { useUser } from "@/contexts/UserContext"
 
 interface SentMessage {
   id: string
@@ -64,12 +65,14 @@ export function MessagingInterface() {
   const [contactsError, setContactsError] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  
+  // 사용자 컨텍스트에서 이메일 가져오기
+  const { userEmail: currentUserEmail } = useUser()
 
   // API 설정
   const MESSAGE_API_BASE = "https://messaging-svc-a0euekhwgueqd7c0.koreacentral-01.azurewebsites.net"
   const CHAT_API_BASE = "https://aiagent-svc-dka3epddc7f5hdbm.koreacentral-01.azurewebsites.net"
   const PHONEBOOK_API_BASE = "https://phonebook-svc-dtd4f8f9cyfee5c0.koreacentral-01.azurewebsites.net"
-  const FIXED_USER_ID = "jessica0409@naver.com"
 
   // ChatGPT 모델 목록
   const chatModels = [
@@ -125,7 +128,7 @@ export function MessagingInterface() {
   };
 
   // ✅ 보이는 특수문자 제거(앞에 이상한 제어문자 있었음)
-  const [userEmail] = useState(FIXED_USER_ID) // TODO: 로그인 이메일로 교체
+  const [userEmail] = useState(currentUserEmail || "jessica0409@naver.com") // 로그인된 사용자 이메일 사용
 
   // 전화번호 형식 변환 함수 (010-1234-5678 → +821012345678)
   const formatPhoneToInternational = (phoneNumber: string): string => {
@@ -153,7 +156,7 @@ export function MessagingInterface() {
     setContactsError(null)
     
     try {
-      const response = await fetch(`${PHONEBOOK_API_BASE}/api/phonebook/owner/${encodeURIComponent(FIXED_USER_ID)}`, {
+      const response = await fetch(`${PHONEBOOK_API_BASE}/api/phonebook/owner/${encodeURIComponent(currentUserEmail || "jessica0409@naver.com")}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -315,7 +318,7 @@ export function MessagingInterface() {
     try {
       const requestData: ChatGptRequest = {
         prompt: userPrompt,
-        userId: FIXED_USER_ID,
+        userId: currentUserEmail || "jessica0409@naver.com",
         model: selectedModel
       }
 
@@ -561,10 +564,6 @@ export function MessagingInterface() {
                 </DialogContent>
               </Dialog>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs">
-              <Edit className="h-3 w-3 mr-1" />
-              Manual Input
-            </Button>
           </div>
 
           {/* Message Content Section */}

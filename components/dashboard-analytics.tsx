@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar, Download, RefreshCw, BarChart3, User } from "lucide-react"
+import { useUser } from "@/contexts/UserContext"
 
 type TimeFilter = "1day" | "1week" | "1month"
 
@@ -27,12 +28,14 @@ interface PhoneRankingItem {
 }
 
 export function DashboardAnalytics() {
+  // 사용자 컨텍스트에서 이메일 가져오기
+  const { userEmail: currentUserEmail } = useUser()
+  
   // API 설정
   const API_BASE_URL = "https://analytics-svc-aucrheemh4edbtac.koreacentral-01.azurewebsites.net"
-  const DEFAULT_USER_EMAIL = "jessica0409@naver.com"
 
   const [activeFilter, setActiveFilter] = useState<TimeFilter>("1week")
-  const [userEmail, setUserEmail] = useState(DEFAULT_USER_EMAIL)
+  const [userEmail, setUserEmail] = useState(currentUserEmail || "jessica0409@naver.com")
   const [selectedYear, setSelectedYear] = useState(2025)
   const [monthlyData, setMonthlyData] = useState<MonthlyCountsResponse | null>(null)
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false)
@@ -46,7 +49,7 @@ export function DashboardAnalytics() {
   const [statusError, setStatusError] = useState<string | null>(null)
   
   // Phone Ranking States
-  const [rankingUserEmail, setRankingUserEmail] = useState(DEFAULT_USER_EMAIL)
+  const [rankingUserEmail, setRankingUserEmail] = useState(currentUserEmail || "jessica0409@naver.com")
   const [phoneRankingData, setPhoneRankingData] = useState<PhoneRankingItem[]>([])
   const [isLoadingRanking, setIsLoadingRanking] = useState(false)
   const [rankingError, setRankingError] = useState<string | null>(null)

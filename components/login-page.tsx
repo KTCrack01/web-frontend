@@ -7,13 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, MessageSquare } from "lucide-react"
+import { Eye, EyeOff, MessageSquare, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useUser } from "@/contexts/UserContext"
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     id: "",
     password: "",
@@ -22,16 +25,64 @@ export function LoginPage() {
     name: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter()
+  const { setUserEmail } = useUser()
+
+  // API 설정
+  const LOGIN_API_BASE = "http://localhost:8080"
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
     if (isSignUp) {
       if (formData.password !== formData.confirmPassword) {
         alert("Passwords do not match!")
         return
       }
       console.log("Sign up attempt:", formData)
-    } else {
-      console.log("Login attempt:", formData)
+      // 회원가입 로직은 향후 구현
+      return
+    }
+
+    // 로그인 처리
+    if (!formData.email || !formData.password) {
+      alert("이메일과 비밀번호를 입력해주세요.")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const response = await fetch(`${LOGIN_API_BASE}/api/v1/users/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`로그인 요청 실패: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.valid) {
+        // 로그인 성공
+        setUserEmail(formData.email)
+        router.push('/dashboard')
+      } else {
+        // 로그인 실패
+        alert("로그인에 실패하였습니다.")
+      }
+    } catch (error) {
+      console.error("로그인 오류:", error)
+      alert("로그인에 실패하였습니다.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -108,20 +159,39 @@ export function LoginPage() {
                 </>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="id" className="font-sans">
-                  ID
-                </Label>
-                <Input
-                  id="id"
-                  type="text"
-                  placeholder="Enter your ID"
-                  value={formData.id}
-                  onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                  className="font-mono"
-                  required
-                />
-              </div>
+              {!isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="font-sans">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="font-mono"
+                    required
+                  />
+                </div>
+              )}
+
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="id" className="font-sans">
+                    ID
+                  </Label>
+                  <Input
+                    id="id"
+                    type="text"
+                    placeholder="Enter your ID"
+                    value={formData.id}
+                    onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+                    className="font-mono"
+                    required
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-sans">
@@ -185,8 +255,15 @@ export function LoginPage() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full font-sans">
-                {isSignUp ? "Create Account" : "Sign In"}
+              <Button type="submit" className="w-full font-sans" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isSignUp ? "Creating..." : "Signing In..."}
+                  </>
+                ) : (
+                  isSignUp ? "Create Account" : "Sign In"
+                )}
               </Button>
             </form>
 
@@ -218,18 +295,6 @@ export function LoginPage() {
                 >
                   {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
                 </Button>
-
-                {!isSignUp && (
-                  <Button
-                    variant="secondary"
-                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-sans"
-                  >
-                    <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                    </svg>
-                    Login with Kakao
-                  </Button>
-                )}
               </div>
             </div>
           </CardContent>

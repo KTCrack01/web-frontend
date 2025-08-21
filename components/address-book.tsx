@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Plus, Edit, Trash2, Search, ArrowUpDown, Loader2, AlertCircle } from "lucide-react"
+import { useUser } from "@/contexts/UserContext"
 
 interface Contact {
   id: number
@@ -39,18 +40,18 @@ interface LegacyContact {
   phone: string
 }
 
-// env 작업 해야함 
 export function AddressBook() {
+  // 사용자 컨텍스트에서 이메일 가져오기
+  const { userEmail: currentUserEmail } = useUser()
   
   const BASE_URL = "https://phonebook-svc-dtd4f8f9cyfee5c0.koreacentral-01.azurewebsites.net"
-  const FIXED_USER_EMAIL = "jessica0409@naver.com"
 
   const [contacts, setContacts] = useState<Contact[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [newContact, setNewContact] = useState({
-    ownerEmail: FIXED_USER_EMAIL,
+    ownerEmail: currentUserEmail || "jessica0409@naver.com",
     contactName: "",
     phoneNumber: "",
     carrier: ""
@@ -186,7 +187,7 @@ export function AddressBook() {
       const createdContact = await createContact(newContact)
       setContacts(prev => [...prev, createdContact])
       setNewContact({
-        ownerEmail: FIXED_USER_EMAIL,
+        ownerEmail: currentUserEmail || "jessica0409@naver.com",
         contactName: "",
         phoneNumber: "",
         carrier: ""
@@ -243,7 +244,7 @@ export function AddressBook() {
     setIsLoading(true)
     
     try {
-      const updatedContact = await updateContact(editingContact.id, updateData, FIXED_USER_EMAIL)
+      const updatedContact = await updateContact(editingContact.id, updateData, currentUserEmail || "jessica0409@naver.com")
       
       // 로컬 상태 업데이트
       setContacts(prev => prev.map(contact => 
@@ -253,7 +254,7 @@ export function AddressBook() {
       setSuccessMessage("연락처가 성공적으로 수정되었습니다!")
       setEditingContact(null)
       setNewContact({
-        ownerEmail: FIXED_USER_EMAIL,
+        ownerEmail: currentUserEmail || "jessica0409@naver.com",
         contactName: "",
         phoneNumber: "",
         carrier: ""
@@ -282,7 +283,7 @@ export function AddressBook() {
     setIsLoading(true)
     
     try {
-      await deleteContact(id, FIXED_USER_EMAIL)
+      await deleteContact(id, currentUserEmail || "jessica0409@naver.com")
       
       // 로컬 상태에서 제거
       setContacts(prev => prev.filter(c => c.id !== id))
@@ -306,9 +307,9 @@ export function AddressBook() {
     setSuccessMessage(null)
 
     try {
-      const fetchedContacts = await fetchContactsByOwner(FIXED_USER_EMAIL)
+      const fetchedContacts = await fetchContactsByOwner(currentUserEmail || "jessica0409@naver.com")
       setContacts(fetchedContacts)
-      setSuccessMessage(`${FIXED_USER_EMAIL}의 연락처 ${fetchedContacts.length}개를 불러왔습니다.`)
+      setSuccessMessage(`${currentUserEmail || "jessica0409@naver.com"}의 연락처 ${fetchedContacts.length}개를 불러왔습니다.`)
       
       // 성공 메시지를 3초 후 제거
       setTimeout(() => setSuccessMessage(null), 3000)
@@ -500,7 +501,7 @@ export function AddressBook() {
                         if (!open) {
                           setEditingContact(null)
                           setNewContact({
-                            ownerEmail: FIXED_USER_EMAIL,
+                            ownerEmail: currentUserEmail || "jessica0409@naver.com",
                             contactName: "",
                             phoneNumber: "",
                             carrier: ""

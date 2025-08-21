@@ -14,6 +14,18 @@ interface MonthlyCountsResponse {
   counts: number[]
 }
 
+interface StatusMonthlyResponse {
+  year: number
+  month: number
+  delivered: number
+  failed: number
+}
+
+interface PhoneRankingItem {
+  phoneNum: string
+  count: number
+}
+
 export function DashboardAnalytics() {
   const [activeFilter, setActiveFilter] = useState<TimeFilter>("1week")
   const [userEmail, setUserEmail] = useState("jessica0409@naver.com")
@@ -21,6 +33,19 @@ export function DashboardAnalytics() {
   const [monthlyData, setMonthlyData] = useState<MonthlyCountsResponse | null>(null)
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false)
   const [monthlyError, setMonthlyError] = useState<string | null>(null)
+  
+  // Status Monthly States
+  const [statusYear, setStatusYear] = useState(2024)
+  const [statusMonth, setStatusMonth] = useState(9)
+  const [statusData, setStatusData] = useState<StatusMonthlyResponse | null>(null)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  
+  // Phone Ranking States
+  const [rankingUserEmail, setRankingUserEmail] = useState("jessica0409@naver.com")
+  const [phoneRankingData, setPhoneRankingData] = useState<PhoneRankingItem[]>([])
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false)
+  const [rankingError, setRankingError] = useState<string | null>(null)
 
   const mockData = {
     totalMessages: 1247,
@@ -59,9 +84,77 @@ export function DashboardAnalytics() {
     }
   }
 
+  const fetchStatusData = async () => {
+    setIsLoadingStatus(true)
+    setStatusError(null)
+    
+    try {
+      const response = await fetch(
+        `http://localhost:8081/api/v1/dashboard/data/status-monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${statusYear}&month=${statusMonth}`
+      )
+      
+      if (!response.ok) {
+        throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`)
+      }
+      
+      const data: StatusMonthlyResponse = await response.json()
+      setStatusData(data)
+    } catch (error) {
+      console.error("Status data fetch error:", error)
+      setStatusError(error instanceof Error ? error.message : "데이터를 불러오는데 실패했습니다")
+    } finally {
+      setIsLoadingStatus(false)
+    }
+  }
+
   useEffect(() => {
     fetchMonthlyData()
   }, [userEmail, selectedYear])
+
+  const fetchPhoneRankingData = async () => {
+    if (!rankingUserEmail.trim()) return
+    
+    setIsLoadingRanking(true)
+    setRankingError(null)
+    
+    try {
+      const response = await fetch(
+        `http://localhost:8081/api/v1/dashboard/data/phone-num-ranking?userEmail=${rankingUserEmail}`
+      )
+      
+      if (!response.ok) {
+        throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`)
+      }
+      
+      const data: PhoneRankingItem[] = await response.json()
+      // 상위 5개만 선택
+      setPhoneRankingData(data.slice(0, 5))
+    } catch (error) {
+      console.error("Phone ranking data fetch error:", error)
+      setRankingError(error instanceof Error ? error.message : "데이터를 불러오는데 실패했습니다")
+    } finally {
+      setIsLoadingRanking(false)
+    }
+  }
+
+  const formatPhoneNumber = (phoneNum: string) => {
+    // +82로 시작하는 한국 번호를 010-xxxx-xxxx 형태로 변환
+    if (phoneNum.startsWith('+82')) {
+      const number = phoneNum.slice(3) // +82 제거
+      if (number.length >= 9) {
+        return `010-${number.slice(-8, -4)}-${number.slice(-4)}`
+      }
+    }
+    return phoneNum
+  }
+
+  useEffect(() => {
+    fetchStatusData()
+  }, [statusYear, statusMonth])
+
+  useEffect(() => {
+    fetchPhoneRankingData()
+  }, [rankingUserEmail])
 
   return (
     <div className="h-[calc(100vh-80px)] overflow-y-auto">
@@ -164,99 +257,274 @@ export function DashboardAnalytics() {
           </CardContent>
         </Card>
 
-        {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="font-mono">Total Messages</CardDescription>
-              <CardTitle className="text-2xl font-sans">{mockData.totalMessages.toLocaleString()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground font-mono">+12% from last period</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="font-mono">Active Users</CardDescription>
-              <CardTitle className="text-2xl font-sans">{mockData.activeUsers}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground font-mono">+5% from last period</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="font-mono">Avg Response Time</CardDescription>
-              <CardTitle className="text-2xl font-sans">{mockData.responseTime}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground font-mono">-0.3s from last period</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="font-mono">Success Rate</CardDescription>
-              <CardTitle className="text-2xl font-sans">{mockData.successRate}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground font-mono">+0.1% from last period</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-sans">Message Volume</CardTitle>
-              <CardDescription className="font-mono">Messages sent over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
-                <p className="text-muted-foreground font-mono">Chart visualization would go here</p>
+        {/* Monthly Status Statistics */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-sans flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Monthly Status Statistics
+            </CardTitle>
+            <CardDescription className="font-mono">
+              View delivery success/failure rates and costs for specific month
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end space-x-4 mb-4">
+              <div className="w-32">
+                <Label htmlFor="statusYear" className="text-sm font-medium">
+                  Year
+                </Label>
+                <Input
+                  id="statusYear"
+                  type="number"
+                  value={statusYear}
+                  onChange={(e) => setStatusYear(parseInt(e.target.value) || 2024)}
+                  min="2020"
+                  max="2030"
+                  className="mt-1"
+                />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-sans">User Activity</CardTitle>
-              <CardDescription className="font-mono">Active users by hour</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
-                <p className="text-muted-foreground font-mono">Chart visualization would go here</p>
+              <div className="w-32">
+                <Label htmlFor="statusMonth" className="text-sm font-medium">
+                  Month
+                </Label>
+                <Input
+                  id="statusMonth"
+                  type="number"
+                  value={statusMonth}
+                  onChange={(e) => setStatusMonth(parseInt(e.target.value) || 1)}
+                  min="1"
+                  max="12"
+                  className="mt-1"
+                />
               </div>
-            </CardContent>
-          </Card>
+              <Button 
+                onClick={fetchStatusData}
+                disabled={isLoadingStatus}
+                className="font-sans"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+                {isLoadingStatus ? 'Loading...' : 'Update'}
+              </Button>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-sans">Response Times</CardTitle>
-              <CardDescription className="font-mono">API response performance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
-                <p className="text-muted-foreground font-mono">Chart visualization would go here</p>
+            {/* Status Chart and Stats */}
+            {statusError ? (
+              <div className="h-64 flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
+                <p className="text-destructive font-mono text-center">
+                  Error: {statusError}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+            ) : statusData ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Pie Chart */}
+                <div className="h-64 bg-muted rounded-lg p-4 flex items-center justify-center">
+                  <div className="relative w-48 h-48">
+                    {/* Simple CSS-based pie chart */}
+                    <div className="w-full h-full rounded-full relative overflow-hidden bg-gray-200">
+                      {statusData.delivered + statusData.failed > 0 && (
+                        <>
+                          <div 
+                            className="absolute inset-0 rounded-full bg-green-500"
+                            style={{
+                              background: `conic-gradient(
+                                #22c55e 0deg ${(statusData.delivered / (statusData.delivered + statusData.failed)) * 360}deg,
+                                #ef4444 ${(statusData.delivered / (statusData.delivered + statusData.failed)) * 360}deg 360deg
+                              )`
+                            }}
+                          />
+                          <div className="absolute inset-8 bg-background rounded-full flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold">
+                                {statusData.delivered + statusData.failed}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Total
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {/* Legend */}
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded"></div>
+                        <span className="text-sm">Delivered: {statusData.delivered}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded"></div>
+                        <span className="text-sm">Failed: {statusData.failed}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-sans">Error Distribution</CardTitle>
-              <CardDescription className="font-mono">Error types and frequency</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
-                <p className="text-muted-foreground font-mono">Chart visualization would go here</p>
+                {/* Statistics */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-2xl font-bold text-green-600">
+                          {statusData.delivered}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Delivered Messages
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-2xl font-bold text-red-600">
+                          {statusData.failed}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Failed Messages
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-lg font-semibold text-foreground">
+                        Success Rate
+                      </div>
+                      <div className="text-2xl font-bold text-primary">
+                        {statusData.delivered + statusData.failed > 0 
+                          ? ((statusData.delivered / (statusData.delivered + statusData.failed)) * 100).toFixed(1)
+                          : 0}%
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-4">
+                      <div className="text-lg font-semibold text-foreground mb-2">
+                        Monthly Cost
+                      </div>
+                      <div className="text-2xl font-bold text-primary">
+                        {(statusData.delivered * 66).toLocaleString()} won
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        ({statusData.delivered} delivered × 66 won per message)
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
+                <p className="text-muted-foreground font-mono">
+                  Select year and month to view delivery statistics
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Phone Number Ranking */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-sans flex items-center">
+              <User className="h-5 w-5 mr-2" />
+              Top 5 Phone Numbers
+            </CardTitle>
+            <CardDescription className="font-mono">
+              Most frequently messaged phone numbers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end space-x-4 mb-4">
+              <div className="flex-1">
+                <Label htmlFor="rankingUserEmail" className="text-sm font-medium">
+                  User Email
+                </Label>
+                <Input
+                  id="rankingUserEmail"
+                  type="email"
+                  value={rankingUserEmail}
+                  onChange={(e) => setRankingUserEmail(e.target.value)}
+                  placeholder="Enter user email..."
+                  className="mt-1"
+                />
+              </div>
+              <Button 
+                onClick={fetchPhoneRankingData}
+                disabled={isLoadingRanking || !rankingUserEmail.trim()}
+                className="font-sans"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingRanking ? 'animate-spin' : ''}`} />
+                {isLoadingRanking ? 'Loading...' : 'Update'}
+              </Button>
+            </div>
+
+            {/* Ranking Display */}
+            {rankingError ? (
+              <div className="h-64 flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
+                <p className="text-destructive font-mono text-center">
+                  Error: {rankingError}
+                </p>
+              </div>
+            ) : phoneRankingData.length > 0 ? (
+              <div className="space-y-3">
+                {phoneRankingData.map((item, index) => {
+                  const maxCount = Math.max(...phoneRankingData.map(d => d.count))
+                  const percentage = (item.count / maxCount) * 100
+                  
+                  return (
+                    <Card key={item.phoneNum} className="relative overflow-hidden">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between relative z-10">
+                          <div className="flex items-center space-x-3">
+                            <div className={`
+                              flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm
+                              ${index === 0 ? 'bg-yellow-500' : 
+                                index === 1 ? 'bg-gray-400' : 
+                                index === 2 ? 'bg-orange-600' : 'bg-blue-500'}
+                            `}>
+                              {index + 1}
+                            </div>
+                            <div>
+                              <div className="font-mono text-sm font-medium">
+                                {formatPhoneNumber(item.phoneNum)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {item.phoneNum}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-primary">
+                              {item.count}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              messages
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Progress Bar Background */}
+                        <div 
+                          className="absolute inset-0 bg-primary/10 opacity-30 transition-all duration-300"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
+                <p className="text-muted-foreground font-mono">
+                  Enter user email to view phone number rankings
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

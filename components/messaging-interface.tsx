@@ -6,12 +6,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Send, Users, Edit, Bot, Clock, MessageSquare } from "lucide-react"
 
 interface SentMessage {
   id: string
   content: string
   timestamp: Date
+}
+
+interface ChatGptRequest {
+  prompt: string
+  userId: string
+  model: string
+}
+
+interface ChatGptResponse {
+  prompt: string
+  response: string
+  success: boolean
+  error: string | null
 }
 
 export function MessagingInterface() {
@@ -21,6 +35,7 @@ export function MessagingInterface() {
   const [chatResponses, setChatResponses] = useState<string[]>([])
   const [isLoadingChat, setIsLoadingChat] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini")
   const [messageHistory, setMessageHistory] = useState<SentMessage[]>([])
   const [leftWidth, setLeftWidth] = useState(25) // Message History width %
   const [middleWidth, setMiddleWidth] = useState(45) // Send Message width %
@@ -31,8 +46,57 @@ export function MessagingInterface() {
 
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // 내가 추가한 부분
-  const API_BASE = "http://localhost:8080";
+  // API 설정
+  const API_BASE = "http://localhost:8080"
+  const CHAT_API_BASE = "http://localhost:8083"
+  const FIXED_USER_ID = "jessica0409@naver.com"
+
+  // ChatGPT 모델 목록
+  const chatModels = [
+    // GPT-5 시리즈
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5-chat-latest",
+    
+    // GPT-4.1 시리즈
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    
+    // GPT-4o 시리즈
+    "gpt-4o",
+    "gpt-4o-2024-05-13",
+    "gpt-4o-audio-preview",
+    "gpt-4o-realtime-preview",
+    "gpt-4o-mini",
+    "gpt-4o-mini-audio-preview",
+    "gpt-4o-mini-realtime-preview",
+    "gpt-4o-mini-search-preview",
+    "gpt-4o-search-preview",
+    
+    // O1 시리즈
+    "o1",
+    "o1-pro",
+    "o1-mini",
+    
+    // O3 시리즈
+    "o3-pro",
+    "o3",
+    "o3-deep-research",
+    "o3-mini",
+    
+    // O4 시리즈
+    "o4-mini",
+    "o4-mini-deep-research",
+    
+    // 기타 모델
+    "codex-mini-latest",
+    "computer-use-preview",
+    "gpt-image-1",
+    "gpt-4-turbo",
+    "gpt-3.5-turbo"
+  ]
 
   type HistoryRow = {
     id: number;
@@ -142,12 +206,44 @@ export function MessagingInterface() {
     const userPrompt = chatPrompt
     setChatPrompt("")
 
-    // Simulate ChatGPT response
-    setTimeout(() => {
-      const response = `AI: Here's a response to "${userPrompt}". This is a simulated ChatGPT integration that would help you craft better messages, provide suggestions, or answer questions about your messaging campaigns.`
-      setChatResponses((prev) => [...prev, `You: ${userPrompt}`, response])
+    // 사용자 메시지를 먼저 추가
+    setChatResponses((prev) => [...prev, `You: ${userPrompt}`])
+
+    try {
+      const requestData: ChatGptRequest = {
+        prompt: userPrompt,
+        userId: FIXED_USER_ID,
+        model: selectedModel
+      }
+
+      const response = await fetch(`${CHAT_API_BASE}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`)
+      }
+
+      const data: ChatGptResponse = await response.json()
+
+      if (data.success) {
+        setChatResponses((prev) => [...prev, `ChatGPT: ${data.response}`])
+      } else {
+        setChatResponses((prev) => [...prev, `Error: ${data.error || '알 수 없는 오류가 발생했습니다.'}`])
+      }
+    } catch (error) {
+      console.error('Chat API 오류:', error)
+      setChatResponses((prev) => [
+        ...prev, 
+        `Error: ${error instanceof Error ? error.message : '네트워크 오류가 발생했습니다.'}`
+      ])
+    } finally {
       setIsLoadingChat(false)
-    }, 1000)
+    }
   }
 
   const formatTimestamp = (date: Date) => {
@@ -325,6 +421,30 @@ export function MessagingInterface() {
           </h2>
         </div>
 
+        {/* Model Selection */}
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center space-x-3">
+            <label className="text-sm font-medium text-foreground whitespace-nowrap">
+              Model:
+            </label>
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {chatModels.map((model) => (
+                  <SelectItem key={model} value={model}>
+                    {model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">
+              Current: {selectedModel}
+            </span>
+          </div>
+        </div>
+
         {/* Chat Input */}
         <div className="p-6 border-b border-border">
           <div className="flex space-x-2">
@@ -360,17 +480,34 @@ export function MessagingInterface() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {chatResponses.map((response, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg ${response.startsWith("You:") ? "bg-primary/10 ml-8" : "bg-muted mr-8"}`}
-                >
-                  <p className="text-sm font-mono whitespace-pre-wrap">{response}</p>
-                </div>
-              ))}
+              {chatResponses.map((response, index) => {
+                const isUser = response.startsWith("You:")
+                const isError = response.startsWith("Error:")
+                const isChatGPT = response.startsWith("ChatGPT:")
+                
+                return (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg ${
+                      isUser 
+                        ? "bg-primary/10 ml-8" 
+                        : isError 
+                          ? "bg-red-100 border border-red-200 mr-8"
+                          : "bg-muted mr-8"
+                    }`}
+                  >
+                    <p className={`text-sm font-mono whitespace-pre-wrap ${
+                      isError ? "text-red-700" : ""
+                    }`}>
+                      {response}
+                    </p>
+                   
+                  </div>
+                )
+              })}
               {isLoadingChat && (
                 <div className="bg-muted mr-8 p-3 rounded-lg">
-                  <p className="text-sm font-mono text-muted-foreground">AI is thinking...</p>
+                  <p className="text-sm font-mono text-muted-foreground">ChatGPT is thinking...</p>
                 </div>
               )}
             </div>

@@ -28,8 +28,7 @@ interface PhoneRankingItem {
 
 export function DashboardAnalytics() {
   // API 설정
-  // env 작업 해야함 
-  const API_BASE_URL = process.env.REACT_APP_DASHBOARD_BASE_URL ?? "http://localhost:8081" 
+  const API_BASE_URL = "https://analytics-svc-aucrheemh4edbtac.koreacentral-01.azurewebsites.net"
   const DEFAULT_USER_EMAIL = "jessica0409@naver.com"
 
   const [activeFilter, setActiveFilter] = useState<TimeFilter>("1week")

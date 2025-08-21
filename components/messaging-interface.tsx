@@ -47,8 +47,8 @@ export function MessagingInterface() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   // API 설정
-  const MESSAGE_API_BASE = process.env.REACT_APP_MESSAGE_BASE_URL ?? "http://localhost:8080" 
-  const CHAT_API_BASE = process.env.REACT_APP_AGENT_BASE_URL ?? "http://localhost:8083" 
+  const MESSAGE_API_BASE = "https://messaging-svc-a0euekhwgueqd7c0.koreacentral-01.azurewebsites.net"
+  const CHAT_API_BASE = "https://aiagent-svc-dka3epddc7f5hdbm.koreacentral-01.azurewebsites.net"
   const FIXED_USER_ID = "jessica0409@naver.com"
 
   // ChatGPT 모델 목록

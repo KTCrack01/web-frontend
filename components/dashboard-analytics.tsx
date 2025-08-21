@@ -90,7 +90,7 @@ export function DashboardAnalytics() {
     
     try {
       const response = await fetch(
-        `http://localhost:8081/api/v1/dashboard/data/status-monthly-counts?year=${statusYear}&month=${statusMonth}`
+        `http://localhost:8081/api/v1/dashboard/data/status-monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${statusYear}&month=${statusMonth}`
       )
       
       if (!response.ok) {

@@ -18,11 +18,9 @@ export function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
-    id: "",
+    email: "",
     password: "",
     confirmPassword: "",
-    email: "",
-    name: "",
   })
 
   const router = useRouter()
@@ -34,22 +32,70 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (isSignUp) {
-      if (formData.password !== formData.confirmPassword) {
-        alert("Passwords do not match!")
-        return
-      }
-      console.log("Sign up attempt:", formData)
-      // 회원가입 로직은 향후 구현
-      return
-    }
-
-    // 로그인 처리
     if (!formData.email || !formData.password) {
       alert("이메일과 비밀번호를 입력해주세요.")
       return
     }
 
+    if (isSignUp) {
+      // 회원가입 처리
+      if (formData.password !== formData.confirmPassword) {
+        alert("비밀번호가 일치하지 않습니다!")
+        return
+      }
+
+      setIsLoading(true)
+
+      try {
+        const response = await fetch(`${LOGIN_API_BASE}/api/v1/users/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        })
+
+        if (!response.ok) {
+          if (response.status === 400 || response.status === 409) {
+            // 서버에서 반환하는 에러 메시지 파싱
+            try {
+              const errorData = await response.json()
+              alert(errorData.message || "이미 사용 중인 이메일입니다.")
+            } catch {
+              alert("이미 사용 중인 이메일입니다.")
+            }
+          } else {
+            throw new Error(`회원가입 요청 실패: ${response.status} ${response.statusText}`)
+          }
+          return
+        }
+
+        const data = await response.json()
+        
+        // 회원가입 성공
+        alert(`회원가입이 완료되었습니다!`)
+        
+        // 로그인 모드로 전환
+        setIsSignUp(false)
+        setFormData({
+          email: formData.email, // 이메일은 유지
+          password: "",
+          confirmPassword: "",
+        })
+        
+      } catch (error) {
+        console.error("회원가입 오류:", error)
+        alert("회원가입에 실패하였습니다.")
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // 로그인 처리
     setIsLoading(true)
 
     try {
@@ -89,11 +135,9 @@ export function LoginPage() {
   const toggleMode = () => {
     setIsSignUp(!isSignUp)
     setFormData({
-      id: "",
+      email: "",
       password: "",
       confirmPassword: "",
-      email: "",
-      name: "",
     })
   }
 
@@ -125,73 +169,20 @@ export function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {isSignUp && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="font-sans">
-                      Full Name
-                    </Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="font-mono"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="font-sans">
-                      Email
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="font-mono"
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
-              {!isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="font-sans">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="font-mono"
-                    required
-                  />
-                </div>
-              )}
-
-              {isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="id" className="font-sans">
-                    ID
-                  </Label>
-                  <Input
-                    id="id"
-                    type="text"
-                    placeholder="Enter your ID"
-                    value={formData.id}
-                    onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                    className="font-mono"
-                    required
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="font-sans">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="font-mono"
+                  required
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="font-sans">

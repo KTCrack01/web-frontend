@@ -39,9 +39,11 @@ interface LegacyContact {
   phone: string
 }
 
+// env 작업 해야함 
 export function AddressBook() {
-  // 고정 설정값
-  const BASE_URL = "http://localhost:8082"
+  
+  // env 작업 해야함 
+  const BASE_URL = process.env.REACT_APP_PHONEBOOK_BASE_URL ?? "http://localhost:8082" 
   const FIXED_USER_EMAIL = "jessica0409@naver.com"
 
   const [contacts, setContacts] = useState<Contact[]>([])

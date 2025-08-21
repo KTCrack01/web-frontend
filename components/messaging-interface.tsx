@@ -47,8 +47,8 @@ export function MessagingInterface() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   // API 설정
-  const API_BASE = "http://localhost:8080"
-  const CHAT_API_BASE = "http://localhost:8083"
+  const MESSAGE_API_BASE = process.env.REACT_APP_MESSAGE_BASE_URL ?? "http://localhost:8080" 
+  const CHAT_API_BASE = process.env.REACT_APP_AGENT_BASE_URL ?? "http://localhost:8083" 
   const FIXED_USER_ID = "jessica0409@naver.com"
 
   // ChatGPT 모델 목록
@@ -105,13 +105,13 @@ export function MessagingInterface() {
   };
 
   // ✅ 보이는 특수문자 제거(앞에 이상한 제어문자 있었음)
-  const [userEmail] = useState("jessica0409@naver.com") // TODO: 로그인 이메일로 교체
+  const [userEmail] = useState(FIXED_USER_ID) // TODO: 로그인 이메일로 교체
 
   // ✅ 마운트/포커스에서 취소 가능하도록 AbortController 사용
   const fetchMessageHistory = async (email: string, signal?: AbortSignal) => {
     const res = await fetch(
       // ✅ 템플릿 리터럴(backtick) 필수
-      `${API_BASE}/api/v1/messages?userEmail=${encodeURIComponent(email)}`,
+      `${MESSAGE_API_BASE}/api/v1/messages?userEmail=${encodeURIComponent(email)}`,
       { headers: { "Content-Type": "application/json" }, signal }
     )
     if (!res.ok) {
@@ -173,7 +173,7 @@ export function MessagingInterface() {
     };
   
     try {
-      const res = await fetch(`${API_BASE}/api/v1/messages`, {
+      const res = await fetch(`${MESSAGE_API_BASE}/api/v1/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

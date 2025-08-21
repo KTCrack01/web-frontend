@@ -27,8 +27,13 @@ interface PhoneRankingItem {
 }
 
 export function DashboardAnalytics() {
+  // API 설정
+  // env 작업 해야함 
+  const API_BASE_URL = process.env.REACT_APP_DASHBOARD_BASE_URL ?? "http://localhost:8081" 
+  const DEFAULT_USER_EMAIL = "jessica0409@naver.com"
+
   const [activeFilter, setActiveFilter] = useState<TimeFilter>("1week")
-  const [userEmail, setUserEmail] = useState("jessica0409@naver.com")
+  const [userEmail, setUserEmail] = useState(DEFAULT_USER_EMAIL)
   const [selectedYear, setSelectedYear] = useState(2025)
   const [monthlyData, setMonthlyData] = useState<MonthlyCountsResponse | null>(null)
   const [isLoadingMonthly, setIsLoadingMonthly] = useState(false)
@@ -42,7 +47,7 @@ export function DashboardAnalytics() {
   const [statusError, setStatusError] = useState<string | null>(null)
   
   // Phone Ranking States
-  const [rankingUserEmail, setRankingUserEmail] = useState("jessica0409@naver.com")
+  const [rankingUserEmail, setRankingUserEmail] = useState(DEFAULT_USER_EMAIL)
   const [phoneRankingData, setPhoneRankingData] = useState<PhoneRankingItem[]>([])
   const [isLoadingRanking, setIsLoadingRanking] = useState(false)
   const [rankingError, setRankingError] = useState<string | null>(null)
@@ -67,7 +72,7 @@ export function DashboardAnalytics() {
     
     try {
       const response = await fetch(
-        `http://localhost:8081/api/v1/dashboard/data/monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${selectedYear}`
+        `${API_BASE_URL}/api/v1/dashboard/data/monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${selectedYear}`
       )
       
       if (!response.ok) {
@@ -90,7 +95,7 @@ export function DashboardAnalytics() {
     
     try {
       const response = await fetch(
-        `http://localhost:8081/api/v1/dashboard/data/status-monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${statusYear}&month=${statusMonth}`
+        `${API_BASE_URL}/api/v1/dashboard/data/status-monthly-counts?userEmail=${encodeURIComponent(userEmail)}&year=${statusYear}&month=${statusMonth}`
       )
       
       if (!response.ok) {
@@ -119,7 +124,7 @@ export function DashboardAnalytics() {
     
     try {
       const response = await fetch(
-        `http://localhost:8081/api/v1/dashboard/data/phone-num-ranking?userEmail=${rankingUserEmail}`
+        `${API_BASE_URL}/api/v1/dashboard/data/phone-num-ranking?userEmail=${rankingUserEmail}`
       )
       
       if (!response.ok) {

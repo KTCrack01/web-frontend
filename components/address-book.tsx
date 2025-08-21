@@ -26,6 +26,12 @@ interface CreateContactRequest {
   carrier: string
 }
 
+interface UpdateContactRequest {
+  contactName: string
+  phoneNumber: string
+  carrier: string
+}
+
 // 기존 형태와의 호환성을 위한 레거시 인터페이스
 interface LegacyContact {
   id: number
@@ -35,7 +41,7 @@ interface LegacyContact {
 
 export function AddressBook() {
   // 고정 설정값
-  const BASE_URL = "https://phonebook-svc-dtd4f8f9cyfee5c0.koreacentral-01.azurewebsites.net"
+  const BASE_URL = "http://localhost:8082"
   const FIXED_USER_EMAIL = "jessica0409@naver.com"
 
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -54,7 +60,6 @@ export function AddressBook() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   
   // 연락처 조회 관련 상태
-  const [ownerEmailFilter, setOwnerEmailFilter] = useState("test@example.com")
   const [isLoadingContacts, setIsLoadingContacts] = useState(false)
   const [contactsError, setContactsError] = useState<string | null>(null)
 
@@ -121,6 +126,37 @@ export function AddressBook() {
     return response.json()
   }
 
+  const updateContact = async (id: number, contactData: UpdateContactRequest, ownerEmail: string): Promise<Contact> => {
+    const response = await fetch(`${BASE_URL}/api/phonebook/${id}?ownerEmail=${encodeURIComponent(ownerEmail)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(contactData),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`연락처 수정 실패: ${response.status} ${response.statusText} ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  const deleteContact = async (id: number, ownerEmail: string): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/api/phonebook/${id}?ownerEmail=${encodeURIComponent(ownerEmail)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`연락처 삭제 실패: ${response.status} ${response.statusText} ${errorText}`)
+    }
+  }
+
   const filteredContacts = contacts
     .filter(
       (contact) => 
@@ -131,8 +167,6 @@ export function AddressBook() {
       const comparison = a.contactName.localeCompare(b.contactName, "ko", { sensitivity: "base" })
       return sortOrder === "asc" ? comparison : -comparison
     })
-
-
 
   const handleAddContact = async () => {
     setError(null)
@@ -179,22 +213,88 @@ export function AddressBook() {
     })
   }
 
-  const handleUpdateContact = () => {
-    // 현재는 편집 기능 비활성화 (API 엔드포인트가 없음)
-    alert("편집 기능은 현재 구현되지 않았습니다.")
-    setEditingContact(null)
-    setNewContact({
-      ownerEmail: FIXED_USER_EMAIL,
-      contactName: "",
-      phoneNumber: "",
-      carrier: ""
-    })
+  const handleUpdateContact = async () => {
+    if (!editingContact) return
+
+    setError(null)
+    setSuccessMessage(null)
+
+    // 유효성 검증 (ownerEmail 제외)
+    const updateData: UpdateContactRequest = {
+      contactName: newContact.contactName,
+      phoneNumber: newContact.phoneNumber,
+      carrier: newContact.carrier
+    }
+
+    if (!updateData.contactName.trim()) {
+      setError("연락처 이름은 필수입니다.")
+      return
+    }
+    if (!validatePhoneNumber(updateData.phoneNumber)) {
+      setError("올바른 휴대폰 번호 형식을 입력해주세요. (예: 010-1234-5678)")
+      return
+    }
+    if (!carriers.includes(updateData.carrier)) {
+      setError("통신사를 선택해주세요.")
+      return
+    }
+
+    setIsLoading(true)
+    
+    try {
+      const updatedContact = await updateContact(editingContact.id, updateData, FIXED_USER_EMAIL)
+      
+      // 로컬 상태 업데이트
+      setContacts(prev => prev.map(contact => 
+        contact.id === editingContact.id ? updatedContact : contact
+      ))
+      
+      setSuccessMessage("연락처가 성공적으로 수정되었습니다!")
+      setEditingContact(null)
+      setNewContact({
+        ownerEmail: FIXED_USER_EMAIL,
+        contactName: "",
+        phoneNumber: "",
+        carrier: ""
+      })
+      
+      // 성공 메시지를 3초 후 제거
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (error) {
+      console.error("연락처 수정 실패:", error)
+      setError(error instanceof Error ? error.message : "연락처 수정에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleDeleteContact = (id: number) => {
-    // 현재는 삭제 기능 비활성화 (API 엔드포인트가 없음)
-    if (confirm("삭제 기능은 현재 구현되지 않았습니다. 로컬에서만 제거하시겠습니까?")) {
-      setContacts(contacts.filter((c) => c.id !== id))
+  const handleDeleteContact = async (id: number) => {
+    const contact = contacts.find(c => c.id === id)
+    if (!contact) return
+
+    if (!confirm(`"${contact.contactName}" 연락처를 삭제하시겠습니까?`)) {
+      return
+    }
+
+    setError(null)
+    setSuccessMessage(null)
+    setIsLoading(true)
+    
+    try {
+      await deleteContact(id, FIXED_USER_EMAIL)
+      
+      // 로컬 상태에서 제거
+      setContacts(prev => prev.filter(c => c.id !== id))
+      
+      setSuccessMessage(`"${contact.contactName}" 연락처가 성공적으로 삭제되었습니다!`)
+      
+      // 성공 메시지를 3초 후 제거
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (error) {
+      console.error("연락처 삭제 실패:", error)
+      setError(error instanceof Error ? error.message : "연락처 삭제에 실패했습니다.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -356,43 +456,11 @@ export function AddressBook() {
           </div>
         </div>
 
-        {/* Load Contacts */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium text-foreground">
-                  Load Contacts for {FIXED_USER_EMAIL}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Current contacts: {contacts.length} items
-                </p>
-              </div>
-              <Button 
-                onClick={handleFetchContacts}
-                disabled={isLoadingContacts}
-              >
-                {isLoadingContacts ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    Load Contacts
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Search */}
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search contacts by name or phone..."
+            placeholder="Search contacts by name."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -421,9 +489,6 @@ export function AddressBook() {
                       <div className="flex items-center space-x-4 mt-1">
                         <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                           {contact.carrier}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {contact.ownerEmail}
                         </span>
                       </div>
                     </div>
@@ -496,14 +561,43 @@ export function AddressBook() {
                               </SelectContent>
                             </Select>
                           </div>
-                          <Button onClick={handleUpdateContact} className="w-full" disabled>
-                            Update Contact (Not Available)
+                          {error && (
+                            <Alert className="border-red-200 bg-red-50">
+                              <AlertCircle className="h-4 w-4 text-red-600" />
+                              <AlertDescription className="text-red-800">
+                                {error}
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          
+                          <Button 
+                            onClick={handleUpdateContact} 
+                            className="w-full" 
+                            disabled={isLoading}
+                          >
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Updating...
+                              </>
+                            ) : (
+                              "Update Contact"
+                            )}
                           </Button>
                         </div>
                       </DialogContent>
                     </Dialog>
-                    <Button variant="outline" size="sm" onClick={() => handleDeleteContact(contact.id)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleDeleteContact(contact.id)}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </CardContent>
@@ -516,7 +610,7 @@ export function AddressBook() {
                     {searchTerm 
                       ? "검색 결과가 없습니다." 
                       : contacts.length === 0 
-                        ? "연락처가 없습니다. 새 연락처를 추가하거나 'Load Contacts' 버튼을 눌러주세요." 
+                        ? "연락처가 없습니다. 새 연락처를 추가해주세요." 
                         : "필터링된 연락처가 없습니다."
                     }
                   </p>

@@ -27,7 +27,7 @@ export function LoginPage() {
   const { setUserEmail } = useUser()
 
   // API 설정
-  const LOGIN_API_BASE = "http://localhost:8080"
+  const LOGIN_API_BASE = "https://login-svc-gbg8ephsd6bufnca.koreacentral-01.azurewebsites.net"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

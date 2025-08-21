@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Send, Users, Edit, Bot, Clock, MessageSquare, Loader2 } from "lucide-react"
+import { Send, Users, Edit, Bot, Clock, MessageSquare, Loader2, Search } from "lucide-react"
 import { useUser } from "@/contexts/UserContext"
 
 interface SentMessage {
@@ -63,6 +63,7 @@ export function MessagingInterface() {
   const [selectedContacts, setSelectedContacts] = useState<Set<number>>(new Set())
   const [isLoadingContacts, setIsLoadingContacts] = useState(false)
   const [contactsError, setContactsError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
   const containerRef = useRef<HTMLDivElement>(null)
   
@@ -177,10 +178,16 @@ export function MessagingInterface() {
     }
   }
 
+  // 검색으로 필터링된 연락처 목록
+  const filteredContacts = contacts.filter(contact =>
+    contact.contactName.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   // Address Book 다이얼로그 열기 핸들러
   const handleOpenAddressBook = () => {
     setIsAddressBookOpen(true)
     setSelectedContacts(new Set())
+    setSearchTerm("")
     fetchContacts()
   }
 
@@ -194,6 +201,26 @@ export function MessagingInterface() {
     }
     setSelectedContacts(newSelected)
   }
+
+  // 전체 선택/해제 핸들러
+  const handleSelectAll = () => {
+    if (selectedContacts.size === filteredContacts.length && filteredContacts.length > 0) {
+      // 모든 필터링된 연락처가 선택되어 있으면 모두 해제
+      const newSelected = new Set(selectedContacts)
+      filteredContacts.forEach(contact => newSelected.delete(contact.id))
+      setSelectedContacts(newSelected)
+    } else {
+      // 일부만 선택되어 있거나 아무것도 선택되지 않았으면 모두 선택
+      const newSelected = new Set(selectedContacts)
+      filteredContacts.forEach(contact => newSelected.add(contact.id))
+      setSelectedContacts(newSelected)
+    }
+  }
+
+  // 현재 필터링된 연락처 중 선택된 개수
+  const selectedFilteredCount = filteredContacts.filter(contact => selectedContacts.has(contact.id)).length
+  const isAllSelected = selectedFilteredCount === filteredContacts.length && filteredContacts.length > 0
+  const isPartiallySelected = selectedFilteredCount > 0 && selectedFilteredCount < filteredContacts.length
 
   // 선택된 연락처들을 Recipients에 추가하는 핸들러
   const handleAddSelectedContacts = () => {
@@ -490,6 +517,35 @@ export function MessagingInterface() {
                   </DialogHeader>
                   
                   <div className="flex flex-col h-[500px]">
+                    {/* Search and Select All */}
+                    <div className="space-y-3 mb-4">
+                      {/* Search Input */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search contacts by name..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+
+                      {/* Select All Checkbox */}
+                      {filteredContacts.length > 0 && (
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={isAllSelected}
+                            onCheckedChange={handleSelectAll}
+                            id="select-all"
+                            className={isPartiallySelected ? "data-[state=checked]:bg-primary/50" : ""}
+                          />
+                          <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                            Select All ({filteredContacts.length} contacts)
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Contact List */}
                     <div className="flex-1 overflow-y-auto">
                       {isLoadingContacts ? (
@@ -501,13 +557,13 @@ export function MessagingInterface() {
                         <div className="flex items-center justify-center h-32 text-red-600">
                           <span>Error: {contactsError}</span>
                         </div>
-                      ) : contacts.length === 0 ? (
+                      ) : filteredContacts.length === 0 ? (
                         <div className="flex items-center justify-center h-32 text-muted-foreground">
-                          <span>No contacts found</span>
+                          <span>{searchTerm ? "No contacts match your search" : "No contacts found"}</span>
                         </div>
                       ) : (
                         <div className="space-y-2 p-1">
-                          {contacts.map((contact) => (
+                          {filteredContacts.map((contact) => (
                             <Card 
                               key={contact.id} 
                               className={`cursor-pointer transition-colors ${

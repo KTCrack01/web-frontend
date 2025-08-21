@@ -1,7 +1,8 @@
 "use client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { MessageSquare, BarChart3, User, Settings, LogOut, Users } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { MessageSquare, BarChart3, User, LogOut, Users } from "lucide-react"
 import { MessagingInterface } from "@/components/messaging-interface"
 import { DashboardAnalytics } from "@/components/dashboard-analytics"
 import { AddressBook } from "@/components/address-book"
@@ -12,7 +13,7 @@ type ActiveTab = "messaging" | "dashboard" | "address-book"
 
 export function DashboardLayout() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("messaging")
-  const { setUserEmail } = useUser()
+  const { userEmail, setUserEmail } = useUser()
   const router = useRouter()
 
   // 로그아웃 핸들러
@@ -25,7 +26,8 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
       {/* Top Navigation Bar */}
       <header className="border-b border-border bg-card">
         <div className="flex items-center justify-between px-6 py-4">
@@ -70,15 +72,26 @@ export function DashboardLayout() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm">
-              <User className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout} title="로그아웃">
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <User className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{userEmail || "로그인되지 않음"}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>로그아웃</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </header>
@@ -89,6 +102,7 @@ export function DashboardLayout() {
         {activeTab === "dashboard" && <DashboardAnalytics />}
         {activeTab === "address-book" && <AddressBook />}
       </main>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

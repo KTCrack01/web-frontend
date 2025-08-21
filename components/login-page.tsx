@@ -260,23 +260,6 @@ export function LoginPage() {
 
             {/* Links Section */}
             <div className="mt-6 space-y-4">
-              {!isSignUp && (
-                <div className="flex justify-between text-sm">
-                  <Link
-                    href="/forgot-id"
-                    className="text-accent hover:text-accent/80 font-mono underline-offset-4 hover:underline"
-                  >
-                    Forgot ID?
-                  </Link>
-                  <Link
-                    href="/forgot-password"
-                    className="text-accent hover:text-accent/80 font-mono underline-offset-4 hover:underline"
-                  >
-                    Forgot Password?
-                  </Link>
-                </div>
-              )}
-
               <div className="space-y-3">
                 <Button
                   variant="outline"

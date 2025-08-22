@@ -69,6 +69,25 @@ pnpm install
 pnpm dev
 ```
 
+### 환경 변수 (예시)
+`.env.local`에 백엔드 API 주소를 설정하세요.
+
+```bash
+# Messaging API
+NEXT_PUBLIC_MESSAGING_API_BASE=http://localhost:8080
+
+# Analytics API
+NEXT_PUBLIC_ANALYTICS_API_BASE=http://localhost:8080
+
+# Login API
+NEXT_PUBLIC_LOGIN_API_BASE=http://localhost:8080
+
+# Phonebook API
+NEXT_PUBLIC_PHONEBOOK_API_BASE=http://localhost:8080
+```
+
+Docker로 배포 시 컨테이너 포트는 `3000`입니다([ADR-005](../msa-project-hub/docs/adr/ADR-005-service-port-convention.md)).
+
 ---
 
 ## ✨ 특징

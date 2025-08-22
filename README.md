@@ -88,6 +88,8 @@ NEXT_PUBLIC_PHONEBOOK_API_BASE=http://localhost:8080
 
 Docker로 배포 시 컨테이너 포트는 `3000`입니다([ADR-005](../msa-project-hub/docs/adr/ADR-005-service-port-convention.md)).
 
+백엔드 API 버저닝 규칙과 CORS 기준 정책은 각각 [ADR-003](../msa-project-hub/docs/adr/ADR-003-api-versioning-and-base-path.md), [ADR-013](../msa-project-hub/docs/adr/ADR-013-cors-baseline-policy.md)을 참고하세요.
+
 ---
 
 ## ✨ 특징
